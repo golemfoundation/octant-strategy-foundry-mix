@@ -1,7 +1,7 @@
 @gnosis.pm/safe-contracts/=lib/octant-v2-core/lib/safe-smart-account
 @openzeppelin/contracts-upgradeable/=lib/octant-v2-core/lib/openzeppelin-contracts-upgradeable/contracts/
 @openzeppelin/contracts/=lib/octant-v2-core/lib/openzeppelin-contracts/contracts/
-forge-std/=lib/forge-std/src/
+forge-std/=lib/octant-v2-core/lib/forge-std/src/
 octant-v2-core/=lib/octant-v2-core/
 openzeppelin-contracts-upgradeable/=lib/octant-v2-core/lib/openzeppelin-contracts-upgradeable/
 openzeppelin-contracts/=lib/octant-v2-core/lib/openzeppelin-contracts/
