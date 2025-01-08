@@ -18,9 +18,8 @@ contract StrategyTest is BaseTest {
     address tokenizedStrategyImplementation;
     address moduleImplementation;
     IStrategy module;
-    IStrategy yieldSource = IStrategy(0x52367C8E381EDFb068E9fBa1e7E9B2C847042897);
-    IERC20 asset = IERC20(0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359);
-    /// @dev USDC Polygon
+    address yieldSource = makeAddr("yieldSource");
+    IERC20 asset;
 
     function setUp() public {
         _configure(true, "polygon");
@@ -29,9 +28,19 @@ contract StrategyTest is BaseTest {
 
         temps = _testTemps(
             moduleImplementation,
-            abi.encode(tokenizedStrategyImplementation, management, keeper, dragonRouter, maxReportDelay)
+            abi.encode(
+                yieldSource,
+                tokenizedStrategyImplementation,
+                address(token),
+                management,
+                keeper,
+                dragonRouter,
+                maxReportDelay,
+                "Strategy"
+            )
         );
         module = IStrategy(payable(temps.module));
+        asset = token;
     }
 
     function testCheckModuleInitialization() public view {
@@ -44,95 +53,30 @@ contract StrategyTest is BaseTest {
     }
 
     function testDeployFunds() public {
-        // add some assets to the safe
-        uint256 amount = 1e13;
-        deal(address(asset), temps.safe, amount, true);
-
-        // only safe can call deposit function
-        vm.expectRevert("Unauthorized");
-        module.deposit(amount, temps.safe);
-
-        vm.startPrank(temps.safe);
-
-        assertTrue(module.availableDepositLimit(temps.safe) == type(uint256).max);
-
-        assertTrue(module.balanceOf(temps.safe) == 0);
-        module.deposit(amount, temps.safe);
-        assertTrue(module.balanceOf(temps.safe) > 0);
-
-        vm.stopPrank();
+        // TODO: Implement to test deploy funds logic
     }
 
-    function testfreeFunds() public {
-        /// Setup
-        uint256 amount = 1e13;
-        _deposit(amount);
-
-        uint256 withdrawAmount = 0.000001 ether;
-
-        vm.startPrank(temps.safe);
-
-        assertTrue(module.availableWithdrawLimit(temps.safe) == type(uint256).max);
-        assertTrue(module.balanceOf(temps.safe) == amount);
-        module.withdraw(withdrawAmount, temps.safe, temps.safe, 10_000);
-        assertTrue(asset.balanceOf(temps.safe) == withdrawAmount);
-
-        vm.stopPrank();
+    function testFreeFunds() public {
+        // TODO: Implement to test free funds logic
     }
 
     function testHarvestTrigger() public {
-        // returns false if strategy has no assets.
-        assertTrue(!module.harvestTrigger());
-
-        // deposit funds in the strategy
-        uint256 amount = 1e13;
-        _deposit(amount);
-        // should return false if strategy has funds but report has been called recently
-        assertTrue(!module.harvestTrigger());
-
-        // should return true if strategy has some idle funds
-        deal(address(asset), address(module), 1e13, true);
-        assertTrue(module.harvestTrigger());
-
-        // should return true if assets in strategy > 0 and report hasn't been called for time > maxReportDelay.
-        vm.warp(block.timestamp + 100);
-        assertTrue(module.harvestTrigger());
+        // TODO: Implement to test harvest trigger logic
     }
 
-    function testharvestAndReport() public {
-        /// Setup
-        uint256 amount = 1e13;
-        _deposit(amount);
-
-        vm.prank(keeper);
-        module.report();
-        assertTrue(asset.balanceOf(address(module)) > 0);
-
-        // As report is called all the funds from the strategy are withdrawn
-        // Therefore we need to deposit the idle funds in the strategy again.
-        vm.prank(keeper);
-        module.tend();
-        assertTrue(asset.balanceOf(address(module)) == 0);
+    function testHarvestAndReport() public {
+        // TODO: Implement to test harvest and report logic
     }
 
     function testShutdownWithdraw() public {
-        /// Setup
-        uint256 amount = 1e13;
-        _deposit(amount);
-
-        vm.startPrank(management);
-
-        uint256 emergencyWithdrawAmount = 0.000001 ether;
-        module.shutdownStrategy();
-        module.emergencyWithdraw(emergencyWithdrawAmount);
-        assertTrue(asset.balanceOf(address(module)) == emergencyWithdrawAmount);
-
-        vm.stopPrank();
+        // TODO: Implement to test shutdown withdraw logic
     }
 
-    function _deposit(uint256 _amount) internal {
-        deal(address(asset), temps.safe, _amount, true);
-        vm.prank(temps.safe);
-        module.deposit(_amount, temps.safe);
+    function testTend() public {
+        // TODO: Implement to test tend logic
+    }
+
+    function testEmergencyWithdraw() public {
+        // TODO: Implement to test emergency withdraw logic
     }
 }

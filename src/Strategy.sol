@@ -8,26 +8,24 @@ import {IStrategy} from "octant-v2-core/src/interfaces/IStrategy.sol";
 
 contract Strategy is Module, BaseStrategy {
     /// @dev Yearn Polygon Aave V3 USDC Lender Vault
-    address public constant yieldSource = 0x52367C8E381EDFb068E9fBa1e7E9B2C847042897;
+    address public yieldSource;
 
     /// @dev Initialize function, will be triggered when a new proxy is deployed
     /// @dev owner of this module will the safe multisig that calls setUp function
     /// @param initializeParams Parameters of initialization encoded
     function setUp(bytes memory initializeParams) public override initializer {
-        /// @dev Strategy specific parameters
-        address _asset = 0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359;
-        /// @dev USDC Polygon
-        string memory _name = "Octant Polygon USDC Strategy";
-
         (address _owner, bytes memory data) = abi.decode(initializeParams, (address, bytes));
 
         (
+            address _yieldSource,
             address _tokenizedStrategyImplementation,
+            address _asset,
             address _management,
             address _keeper,
             address _dragonRouter,
-            uint256 _maxReportDelay
-        ) = abi.decode(data, (address, address, address, address, uint256));
+            uint256 _maxReportDelay,
+            string memory _name
+        ) = abi.decode(data, (address, address, address, address, address, address, uint256, string));
 
         __Ownable_init(msg.sender);
         __BaseStrategy_init(
@@ -41,44 +39,229 @@ contract Strategy is Module, BaseStrategy {
             _name
         );
 
+        yieldSource = _yieldSource;
+
         ERC20(_asset).approve(yieldSource, type(uint256).max);
-        IStrategy(yieldSource).approve(_owner, type(uint256).max);
+        // IStrategy(yieldSource).approve(_owner, type(uint256).max);
 
         setAvatar(_owner);
         setTarget(_owner);
         transferOwnership(_owner);
     }
 
-    function _deployFunds(uint256 _amount) internal override {
-        IStrategy(yieldSource).deposit(_amount, address(this));
-    }
+    /*//////////////////////////////////////////////////////////////
+                NEEDED TO BE OVERRIDDEN BY STRATEGIST
+    //////////////////////////////////////////////////////////////*/
 
-    function _freeFunds(uint256 _amount) internal override {
-        IStrategy(yieldSource).withdraw(_amount, address(this), address(this));
-    }
-
-    /* @dev As we are using yearn vault, the strategy accrues yield in the vault. so the value of strategy's shares
-     * is increased therfore to accrue rewards to the dragon router we have to withdraw all funds and deposit back the remaining funds after
-     * shares of dragon router are allocated.
+    /**
+     * @dev Can deploy up to '_amount' of 'asset' in the yield source.
+     *
+     * This function is called at the end of a {deposit} or {mint}
+     * call. Meaning that unless a whitelist is implemented it will
+     * be entirely permissionless and thus can be sandwiched or otherwise
+     * manipulated.
+     *
+     * @param _amount The amount of 'asset' that the strategy can attempt
+     * to deposit in the yield source.
      */
-    function _harvestAndReport() internal override returns (uint256) {
-        uint256 _withdrawAmount = IStrategy(yieldSource).maxWithdraw(address(this));
-        IStrategy(yieldSource).withdraw(_withdrawAmount, address(this), address(this));
-        return ERC20(asset).balanceOf(address(this));
+    function _deployFunds(uint256 _amount) internal override {
+        // TODO: implement deposit logic EX:
+        //
+        //      lendingPool.deposit(address(asset), _amount ,0);
     }
 
-    function _tend(uint256 /*_idle*/ ) internal override {
-        uint256 balance = ERC20(asset).balanceOf(address(this));
-        if (balance > 0) {
-            IStrategy(yieldSource).deposit(balance, address(this));
-        }
+    /**
+     * @dev Should attempt to free the '_amount' of 'asset'.
+     *
+     * NOTE: The amount of 'asset' that is already loose has already
+     * been accounted for.
+     *
+     * This function is called during {withdraw} and {redeem} calls.
+     * Meaning that unless a whitelist is implemented it will be
+     * entirely permissionless and thus can be sandwiched or otherwise
+     * manipulated.
+     *
+     * Should not rely on asset.balanceOf(address(this)) calls other than
+     * for diff accounting purposes.
+     *
+     * Any difference between `_amount` and what is actually freed will be
+     * counted as a loss and passed on to the withdrawer. This means
+     * care should be taken in times of illiquidity. It may be better to revert
+     * if withdraws are simply illiquid so not to realize incorrect losses.
+     *
+     * @param _amount, The amount of 'asset' to be freed.
+     */
+    function _freeFunds(uint256 _amount) internal override {
+        // TODO: implement withdraw logic EX:
+        //
+        //      lendingPool.withdraw(address(asset), _amount);
     }
 
-    function _emergencyWithdraw(uint256 _amount) internal override {
-        IStrategy(yieldSource).withdraw(_amount, address(this), address(this));
+    /**
+     * @dev Internal function to harvest all rewards, redeploy any idle
+     * funds and return an accurate accounting of all funds currently
+     * held by the Strategy.
+     *
+     * This should do any needed harvesting, rewards selling, accrual,
+     * redepositing etc. to get the most accurate view of current assets.
+     *
+     * NOTE: All applicable assets including loose assets should be
+     * accounted for in this function.
+     *
+     * Care should be taken when relying on oracles or swap values rather
+     * than actual amounts as all Strategy profit/loss accounting will
+     * be done based on this returned value.
+     *
+     * This can still be called post a shutdown, a strategist can check
+     * `TokenizedStrategy.isShutdown()` to decide if funds should be
+     * redeployed or simply realize any profits/losses.
+     *
+     * @return _totalAssets A trusted and accurate account for the total
+     * amount of 'asset' the strategy currently holds including idle funds.
+     */
+    function _harvestAndReport()
+        internal
+        override
+        returns (uint256 _totalAssets)
+    {
+        // TODO: Implement harvesting logic and accurate accounting EX:
+        //
+        //      if(!TokenizedStrategy.isShutdown()) {
+        //          _claimAndSellRewards();
+        //      }
+        //      _totalAssets = aToken.balanceOf(address(this)) + asset.balanceOf(address(this));
+        //
+        _totalAssets = asset.balanceOf(address(this));
     }
 
-    function _tendTrigger() internal pure override returns (bool) {
+    /*//////////////////////////////////////////////////////////////
+                    OPTIONAL TO OVERRIDE BY STRATEGIST
+    //////////////////////////////////////////////////////////////*/
+
+    /**
+     * @notice Gets the max amount of `asset` that can be withdrawn.
+     * @dev Defaults to an unlimited amount for any address. But can
+     * be overridden by strategists.
+     *
+     * This function will be called before any withdraw or redeem to enforce
+     * any limits desired by the strategist. This can be used for illiquid
+     * or sandwichable strategies.
+     *
+     *   EX:
+     *       return asset.balanceOf(yieldSource);
+     *
+     * This does not need to take into account the `_owner`'s share balance
+     * or conversion rates from shares to assets.
+     *
+     * @param . The address that is withdrawing from the strategy.
+     * @return . The available amount that can be withdrawn in terms of `asset`
+     */
+    function availableWithdrawLimit(
+        address /*_owner*/
+    ) public view override returns (uint256) {
+        // NOTE: Withdraw limitations such as liquidity constraints should be accounted for HERE
+        //  rather than _freeFunds in order to not count them as losses on withdraws.
+
+        // TODO: If desired implement withdraw limit logic and any needed state variables.
+
+        // EX:
+        // if(yieldSource.notShutdown()) {
+        //    return asset.balanceOf(address(this)) + asset.balanceOf(yieldSource);
+        // }
+        return asset.balanceOf(address(this));
+    }
+
+    /**
+     * @notice Gets the max amount of `asset` that an address can deposit.
+     * @dev Defaults to an unlimited amount for any address. But can
+     * be overridden by strategists.
+     *
+     * This function will be called before any deposit or mints to enforce
+     * any limits desired by the strategist. This can be used for either a
+     * traditional deposit limit or for implementing a whitelist etc.
+     *
+     *   EX:
+     *      if(isAllowed[_owner]) return super.availableDepositLimit(_owner);
+     *
+     * This does not need to take into account any conversion rates
+     * from shares to assets. But should know that any non max uint256
+     * amounts may be converted to shares. So it is recommended to keep
+     * custom amounts low enough as not to cause overflow when multiplied
+     * by `totalSupply`.
+     *
+     * @param . The address that is depositing into the strategy.
+     * @return . The available amount the `_owner` can deposit in terms of `asset`
+     */
+    function availableDepositLimit(
+        address /*_owner*/
+    ) public view override returns (uint256) {
+        // TODO: If desired Implement deposit limit logic and any needed state variables .
+
+        // EX:
+        // uint256 totalAssets = TokenizedStrategy.totalAssets();
+        // return totalAssets >= depositLimit ? 0 : depositLimit - totalAssets;
+        return type(uint256).max;
+    }
+
+    /**
+     * @dev Optional function for strategist to override that can
+     *  be called in between reports.
+     *
+     * If '_tend' is used tendTrigger() will also need to be overridden.
+     *
+     * This call can only be called by a permissioned role so may be
+     * through protected relays.
+     *
+     * This can be used to harvest and compound rewards, deposit idle funds,
+     * perform needed position maintenance or anything else that doesn't need
+     * a full report for.
+     *
+     *   EX: A strategy that can not deposit funds without getting
+     *       sandwiched can use the tend when a certain threshold
+     *       of idle to totalAssets has been reached.
+     *
+     * This will have no effect on PPS of the strategy till report() is called.
+     *
+     * @param _totalIdle The current amount of idle funds that are available to deploy.
+     */
+    function _tend(uint256 _totalIdle) internal override {}
+
+    /**
+     * @dev Optional trigger to override if tend() will be used by the strategy.
+     * This must be implemented if the strategy hopes to invoke _tend().
+     *
+     * @return . Should return true if tend() should be called by keeper or false if not.
+     */
+    function _tendTrigger() internal view override returns (bool) {
         return true;
+    }
+
+    /**
+     * @dev Optional function for a strategist to override that will
+     * allow management to manually withdraw deployed funds from the
+     * yield source if a strategy is shutdown.
+     *
+     * This should attempt to free `_amount`, noting that `_amount` may
+     * be more than is currently deployed.
+     *
+     * NOTE: This will not realize any profits or losses. A separate
+     * {report} will be needed in order to record any profit/loss. If
+     * a report may need to be called after a shutdown it is important
+     * to check if the strategy is shutdown during {_harvestAndReport}
+     * so that it does not simply re-deploy all funds that had been freed.
+     *
+     * EX:
+     *   if(freeAsset > 0 && !TokenizedStrategy.isShutdown()) {
+     *       depositFunds...
+     *    }
+     *
+     * @param _amount The amount of asset to attempt to free.
+     */
+    function _emergencyWithdraw(uint256 _amount) internal override {
+        // TODO: If desired implement simple logic to free deployed funds.
+
+        // EX:
+        // _amount = min(_amount, aToken.balanceOf(address(this)));
+        // _freeFunds(_amount);
     }
 }
