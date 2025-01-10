@@ -1,36 +1,40 @@
-// SPDX-License-Identifier: AGPL-3.0
+// SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.18;
 
+import "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
 import {BaseStrategy, ERC20} from "octant-v2-core/src/dragons/BaseStrategy.sol";
 import {Module} from "zodiac/core/Module.sol";
-import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import {IStrategyInterface} from "../interfaces/IStrategyInterface.sol";
 import {LiquidityManager} from "./LiquidityManager.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-// Import interfaces for many popular DeFi projects, or add your own!
-//import "../interfaces/<protocol>/<Interface>.sol";
-
-/**
- * The `TokenizedStrategy` variable can be used to retrieve the strategies
- * specific storage data your contract.
- *
- *       i.e. uint256 totalAssets = TokenizedStrategy.totalAssets()
- *
- * This can not be used for write functions. Any TokenizedStrategy
- * variables that need to be updated post deployment will need to
- * come from an external call from the strategies specific `management`.
- */
-
-// NOTE: To implement permissioned functions you can use the onlyManagement, onlyEmergencyAuthorized and onlyKeepers modifiers
-
+/// @title Liquidity Strategy for Uniswap V3
+/// @notice A strategy that manages liquidity positions in Uniswap V3 pools
+/// @dev Inherits from Module, BaseStrategy, and LiquidityManager
 contract LiquidityStrategy is Module, BaseStrategy, LiquidityManager {
-    using SafeERC20 for ERC20;
+    // =========== Events ===========
+    event PositionCreated(uint256 indexed tokenId, uint128 liquidity, uint256 amount0, uint256 amount1);
+    event PositionClosed(uint256 indexed tokenId, uint128 liquidity);
+    event LiquidityRemoved(uint256 indexed tokenId, uint128 liquidity, uint256 amount0, uint256 amount1);
 
-    address public yieldSource;
-    bool public trigger;
-    bool public managed;
-    bool public kept;
-    bool public emergentizated;
+    // =========== Errors ===========
+    error InvalidPool();
+    error InvalidAmount();
+
+    // =========== Structs ===========
+    /// @notice Represents a liquidity position in Uniswap V3
+    struct Position {
+        uint256 tokenId; // NFT token ID of the position
+        uint128 liquidity; // Current liquidity amount
+        uint256 amount0; // Amount of token0
+        uint256 amount1; // Amount of token1
+    }
+
+    // =========== State Variables ===========
+    /// @notice Number of active positions
+    uint256 public positionCount;
+
+    /// @notice Mapping of position index to Position struct
+    mapping(uint256 => Position) public positions;
 
     /// @dev Initialize function, will be triggered when a new proxy is deployed
     /// @dev owner of this module will the safe multisig that calls setUp function
@@ -39,16 +43,25 @@ contract LiquidityStrategy is Module, BaseStrategy, LiquidityManager {
         (address _owner, bytes memory data) = abi.decode(initializeParams, (address, bytes));
 
         (
+            address _nonfungiblePositionManager,
+            address _swapRouter,
+            address _poolAddress,
             address _tokenizedStrategyImplementation,
             address _asset,
-            address _yieldSource,
             address _management,
             address _keeper,
             address _dragonRouter,
             uint256 _maxReportDelay,
             string memory _name
-        ) = abi.decode(data, (address, address, address, address, address, address, uint256, string));
+        ) = abi.decode(data, (address, address, address, address, address, address, address, address, uint256, string));
 
+        // Validate pool contains strategy asset
+        if (IUniswapV3Pool(_poolAddress).token0() != _asset && IUniswapV3Pool(_poolAddress).token1() != _asset) {
+            revert InvalidPool();
+        }
+
+        // Initialize managers
+        __LiquidityManager_init(_nonfungiblePositionManager, _poolAddress, _swapRouter);
         __Ownable_init(msg.sender);
         __BaseStrategy_init(
             _tokenizedStrategyImplementation,
@@ -61,18 +74,10 @@ contract LiquidityStrategy is Module, BaseStrategy, LiquidityManager {
             _name
         );
 
-        yieldSource = _yieldSource;
-        if (_asset != ETH) ERC20(_asset).approve(_yieldSource, type(uint256).max);
-
+        // Set up module permissions
         setAvatar(_owner);
         setTarget(_owner);
         transferOwnership(_owner);
-    }
-
-    function initialize(address _asset, address _yieldSource) public {
-        require(yieldSource == address(0));
-        yieldSource = _yieldSource;
-        ERC20(_asset).approve(_yieldSource, type(uint256).max);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -91,9 +96,71 @@ contract LiquidityStrategy is Module, BaseStrategy, LiquidityManager {
      * to deposit in the yield source.
      */
     function _deployFunds(uint256 _amount) internal override {
-        // TODO: implement deposit logic EX:
-        //
-        //      lendingPool.deposit(address(asset), _amount ,0);
+        if (_amount == 0) revert InvalidAmount();
+
+        // Determine token positions
+        bool isToken0 = address(asset) == TOKEN0;
+
+        // Split amount for balanced liquidity
+        uint256 amount0 = _amount / 2;
+        if (amount0 == 0) return;
+
+        // Swap half for other token
+        uint256 amount1 = swapExactInputSingle(address(asset), isToken0 ? TOKEN1 : TOKEN0, _amount - amount0, 0);
+        if (amount1 == 0) return;
+
+        // Calculate optimal tick range
+        (int24 tickLower, int24 tickUpper) = calculateOptimalTicks(amount0, amount1);
+
+        // Create new position
+        (uint256 tokenId, uint128 liquidity, uint256 finalAmount0, uint256 finalAmount1) =
+            mintNewPosition(amount0, amount1, tickLower, tickUpper);
+
+        // Store position details
+        positions[positionCount] =
+            Position({tokenId: tokenId, liquidity: liquidity, amount0: finalAmount0, amount1: finalAmount1});
+
+        emit PositionCreated(tokenId, liquidity, finalAmount0, finalAmount1);
+
+        // Increment position counter
+        unchecked {
+            ++positionCount;
+        }
+    }
+
+    /// @notice Collect fees from all positions and swap to strategy asset
+    /// @return Total amount collected in strategy asset
+    function collectAllAndSwap() internal returns (uint256) {
+        bool isToken0 = address(asset) == TOKEN0;
+        uint256 totalAmountOut0;
+        uint256 totalAmountOut1;
+
+        // Collect fees from all positions
+        for (uint256 i = 0; i < positionCount;) {
+            Position memory position = positions[i];
+            (uint256 amount0, uint256 amount1) = collectAllFees(position.tokenId);
+
+            unchecked {
+                totalAmountOut0 += amount0;
+                totalAmountOut1 += amount1;
+                ++i;
+            }
+        }
+
+        // Swap collected fees to strategy asset
+        address swapToken = isToken0 ? TOKEN1 : TOKEN0;
+        uint256 swapAmount = isToken0 ? totalAmountOut1 : totalAmountOut0;
+
+        if (swapAmount > 0) {
+            uint256 amountOut = swapExactInputSingle(swapToken, address(asset), swapAmount, 0);
+            if (isToken0) {
+                totalAmountOut0 += amountOut;
+            } else {
+                totalAmountOut1 += amountOut;
+            }
+        }
+
+        return isToken0 ? totalAmountOut0 : totalAmountOut1;
     }
 
     /**
@@ -118,9 +185,32 @@ contract LiquidityStrategy is Module, BaseStrategy, LiquidityManager {
      * @param _amount, The amount of 'asset' to be freed.
      */
     function _freeFunds(uint256 _amount) internal override {
-        // TODO: implement withdraw logic EX:
-        //
-        //      lendingPool.withdraw(address(asset), _amount);
+        if (_amount == 0) revert InvalidAmount();
+
+        // Remove liquidity from all positions
+        for (uint256 i = 0; i < positionCount;) {
+            Position storage position = positions[i];
+
+            (uint128 liquidity, uint256 amount0, uint256 amount1) = removeLiquidity(position.tokenId);
+
+            unchecked {
+                position.amount0 -= amount0;
+                position.amount1 -= amount1;
+                position.liquidity -= liquidity;
+                ++i;
+            }
+
+            emit LiquidityRemoved(position.tokenId, liquidity, amount0, amount1);
+        }
+
+        // Collect and swap all assets
+        uint256 amountOut = collectAllAndSwap();
+
+        // Redeploy excess funds if any
+        uint256 restFund = amountOut > _amount ? amountOut - _amount : 0;
+        if (restFund > 0) {
+            _deployFunds(restFund);
+        }
     }
 
     /**
@@ -146,14 +236,8 @@ contract LiquidityStrategy is Module, BaseStrategy, LiquidityManager {
      * amount of 'asset' the strategy currently holds including idle funds.
      */
     function _harvestAndReport() internal override returns (uint256 _totalAssets) {
-        // TODO: Implement harvesting logic and accurate accounting EX:
-        //
-        //      if(!TokenizedStrategy.isShutdown()) {
-        //          _claimAndSellRewards();
-        //      }
-        //      _totalAssets = aToken.balanceOf(address(this)) + asset.balanceOf(address(this));
-        //
-        _totalAssets = asset.balanceOf(address(this));
+        _freeFunds(type(uint256).max);
+        return asset.balanceOf(address(this));
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -179,16 +263,7 @@ contract LiquidityStrategy is Module, BaseStrategy, LiquidityManager {
      * @return . The available amount that can be withdrawn in terms of `asset`
      */
     function availableWithdrawLimit(address /*_owner*/ ) public view override returns (uint256) {
-        // NOTE: Withdraw limitations such as liquidity constraints should be accounted for HERE
-        //  rather than _freeFunds in order to not count them as losses on withdraws.
-
-        // TODO: If desired implement withdraw limit logic and any needed state variables.
-
-        // EX:
-        // if(yieldSource.notShutdown()) {
-        //    return asset.balanceOf(address(this)) + asset.balanceOf(yieldSource);
-        // }
-        return asset.balanceOf(address(this));
+        return type(uint256).max;
     }
 
     /**
@@ -211,17 +286,10 @@ contract LiquidityStrategy is Module, BaseStrategy, LiquidityManager {
      *
      * @param . The address that is depositing into the strategy.
      * @return . The available amount the `_owner` can deposit in terms of `asset`
-     *
-     * function availableDepositLimit(
-     *     address _owner
-     * ) public view override returns (uint256) {
-     *     TODO: If desired Implement deposit limit logic and any needed state variables .
-     *
-     *     EX:
-     *         uint256 totalAssets = TokenizedStrategy.totalAssets();
-     *         return totalAssets >= depositLimit ? 0 : depositLimit - totalAssets;
-     * }
      */
+    function availableDepositLimit(address /*_owner*/ ) public view override returns (uint256) {
+        return type(uint256).max;
+    }
 
     /**
      * @dev Optional function for strategist to override that can
@@ -242,19 +310,20 @@ contract LiquidityStrategy is Module, BaseStrategy, LiquidityManager {
      *
      * This will have no effect on PPS of the strategy till report() is called.
      *
-     * @param _totalIdle The current amount of idle funds that are available to deploy.
-     *
-     * function _tend(uint256 _totalIdle) internal override {}
      */
+    function _tend(uint256 /*_totalIdle*/ ) internal override {
+        _deployFunds(asset.balanceOf(address(this)));
+    }
 
     /**
      * @dev Optional trigger to override if tend() will be used by the strategy.
      * This must be implemented if the strategy hopes to invoke _tend().
      *
      * @return . Should return true if tend() should be called by keeper or false if not.
-     *
-     * function _tendTrigger() internal view override returns (bool) {}
      */
+    function _tendTrigger() internal view override returns (bool) {
+        return true;
+    }
 
     /**
      * @dev Optional function for a strategist to override that will
@@ -276,13 +345,8 @@ contract LiquidityStrategy is Module, BaseStrategy, LiquidityManager {
      *    }
      *
      * @param _amount The amount of asset to attempt to free.
-     *
-     * function _emergencyWithdraw(uint256 _amount) internal override {
-     *     TODO: If desired implement simple logic to free deployed funds.
-     *
-     *     EX:
-     *         _amount = min(_amount, aToken.balanceOf(address(this)));
-     *         _freeFunds(_amount);
-     * }
      */
+    function _emergencyWithdraw(uint256 _amount) internal override {
+        _freeFunds(_amount);
+    }
 }

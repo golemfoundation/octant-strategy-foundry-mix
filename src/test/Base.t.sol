@@ -34,9 +34,9 @@ contract BaseTest is Test, TestPlus {
                 safeSingleton = vm.envAddress("TEST_SAFE_SINGLETON_POLYGON");
                 proxyFactory = vm.envAddress("TEST_SAFE_PROXY_FACTORY_POLYGON");
             } else if (keccak256(abi.encode(_chain)) == keccak256(abi.encode("eth"))) {
-                TEST_RPC_URL = vm.envString("TEST_RPC_URL");
-                safeSingleton = vm.envAddress("TEST_SAFE_SINGLETON");
-                proxyFactory = vm.envAddress("TEST_SAFE_PROXY_FACTORY");
+                TEST_RPC_URL = vm.envString("TEST_RPC_URL_ETH");
+                safeSingleton = vm.envAddress("TEST_SAFE_SINGLETON_ETH");
+                proxyFactory = vm.envAddress("TEST_SAFE_PROXY_FACTORY_ETH");
             } else if (keccak256(abi.encode(_chain)) == keccak256(abi.encode("celo"))) {
                 TEST_RPC_URL = vm.envString("TEST_RPC_URL_CELO");
                 safeSingleton = vm.envAddress("TEST_SAFE_SINGLETON_CELO");

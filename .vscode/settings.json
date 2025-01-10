@@ -17,6 +17,7 @@
     "tokenized-strategy-periphery/=lib/tokenized-strategy-periphery/",
     "zodiac/=lib/octant-v2-core/lib/zodiac/contracts/",
     "@uniswap/v3-core/=lib/v3-core/",
-    "@uniswap/v3-periphery/=lib/v3-periphery/"
+    "@uniswap/v3-periphery/=lib/v3-periphery/",
+    "@uniswap/swap-router-contracts/=lib/swap-router-contracts/"
   ]
 }

@@ -4,10 +4,7 @@ pragma solidity >=0.8.18;
 import {BaseStrategy, ERC20} from "octant-v2-core/src/dragons/BaseStrategy.sol";
 import {Module} from "zodiac/core/Module.sol";
 
-import {IStrategy} from "octant-v2-core/src/interfaces/IStrategy.sol";
-
 contract Strategy is Module, BaseStrategy {
-    /// @dev Yearn Polygon Aave V3 USDC Lender Vault
     address public yieldSource;
 
     /// @dev Initialize function, will be triggered when a new proxy is deployed
@@ -41,8 +38,7 @@ contract Strategy is Module, BaseStrategy {
 
         yieldSource = _yieldSource;
 
-        ERC20(_asset).approve(yieldSource, type(uint256).max);
-        // IStrategy(yieldSource).approve(_owner, type(uint256).max);
+        if (_asset != ETH) ERC20(_asset).approve(yieldSource, type(uint256).max);
 
         setAvatar(_owner);
         setTarget(_owner);
@@ -119,11 +115,7 @@ contract Strategy is Module, BaseStrategy {
      * @return _totalAssets A trusted and accurate account for the total
      * amount of 'asset' the strategy currently holds including idle funds.
      */
-    function _harvestAndReport()
-        internal
-        override
-        returns (uint256 _totalAssets)
-    {
+    function _harvestAndReport() internal override returns (uint256 _totalAssets) {
         // TODO: Implement harvesting logic and accurate accounting EX:
         //
         //      if(!TokenizedStrategy.isShutdown()) {
@@ -156,9 +148,7 @@ contract Strategy is Module, BaseStrategy {
      * @param . The address that is withdrawing from the strategy.
      * @return . The available amount that can be withdrawn in terms of `asset`
      */
-    function availableWithdrawLimit(
-        address /*_owner*/
-    ) public view override returns (uint256) {
+    function availableWithdrawLimit(address /*_owner*/ ) public view override returns (uint256) {
         // NOTE: Withdraw limitations such as liquidity constraints should be accounted for HERE
         //  rather than _freeFunds in order to not count them as losses on withdraws.
 
@@ -192,9 +182,7 @@ contract Strategy is Module, BaseStrategy {
      * @param . The address that is depositing into the strategy.
      * @return . The available amount the `_owner` can deposit in terms of `asset`
      */
-    function availableDepositLimit(
-        address /*_owner*/
-    ) public view override returns (uint256) {
+    function availableDepositLimit(address /*_owner*/ ) public view override returns (uint256) {
         // TODO: If desired Implement deposit limit logic and any needed state variables .
 
         // EX:
