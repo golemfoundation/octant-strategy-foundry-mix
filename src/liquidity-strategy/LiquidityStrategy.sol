@@ -96,25 +96,33 @@ contract LiquidityStrategy is Module, BaseStrategy, LiquidityManager {
      * to deposit in the yield source.
      */
     function _deployFunds(uint256 _amount) internal override {
+        // Input validation
         if (_amount == 0) revert InvalidAmount();
 
-        // Determine token positions
+        // Determine which token is the strategy asset
         bool isToken0 = address(asset) == TOKEN0;
+        address otherToken = isToken0 ? TOKEN1 : TOKEN0;
 
-        // Split amount for balanced liquidity
+        // Split amount for balanced liquidity (half and half)
         uint256 amount0 = _amount / 2;
         if (amount0 == 0) return;
 
+        // Calculate swap amount
+        uint256 swapAmount = _amount - amount0;
+
         // Swap half for other token
-        uint256 amount1 = swapExactInputSingle(address(asset), isToken0 ? TOKEN1 : TOKEN0, _amount - amount0, 0);
+        uint256 amount1 = swapExactInputSingle(address(asset), otherToken, swapAmount, 0);
         if (amount1 == 0) return;
 
-        // Calculate optimal tick range
-        (int24 tickLower, int24 tickUpper) = calculateOptimalTicks(amount0, amount1);
+        // Order amounts based on token0/token1
+        (uint256 token0Amount, uint256 token1Amount) = isToken0 ? (amount0, amount1) : (amount1, amount0);
 
-        // Create new position
+        // Calculate optimal tick range for position
+        (int24 tickLower, int24 tickUpper) = calculateOptimalTicks(token0Amount, token1Amount);
+
+        // Create new liquidity position
         (uint256 tokenId, uint128 liquidity, uint256 finalAmount0, uint256 finalAmount1) =
-            mintNewPosition(amount0, amount1, tickLower, tickUpper);
+            mintNewPosition(token0Amount, token1Amount, tickLower, tickUpper);
 
         // Store position details
         positions[positionCount] =

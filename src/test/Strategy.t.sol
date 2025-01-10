@@ -22,7 +22,7 @@ contract StrategyTest is BaseTest {
     IERC20 asset;
 
     function setUp() public {
-        _configure(true, "polygon");
+        _configure(true, "celo");
         moduleImplementation = address(new Strategy());
         tokenizedStrategyImplementation = address(new DragonTokenizedStrategy());
 
