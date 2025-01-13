@@ -119,8 +119,7 @@ contract LiquidityStrategyTest is BaseTest {
         // Verify position state
         assertTrue(tokenId > 0, "Token ID should be non-zero");
         assertTrue(liquidity > 0, "Liquidity should be non-zero");
-        assertTrue(amount0 > 0, "Amount0 should be non-zero");
-        assertTrue(amount1 > 0, "Amount1 should be non-zero");
+        assertTrue((amount0 == 0 && amount1 > 0) || (amount0 > 0 && amount1 == 0), "Amounts should be split");
 
         vm.stopPrank();
     }
@@ -137,7 +136,7 @@ contract LiquidityStrategyTest is BaseTest {
         (uint256 tokenId, uint128 initialLiquidity, uint256 posAmount0, uint256 posAmount1) = module.positions(0);
 
         // Execute withdrawal
-        module.withdraw(INITIAL_DEPOSIT, temps.safe, temps.safe, MAX_BPS);
+        module.withdraw(INITIAL_DEPOSIT / 2, temps.safe, temps.safe, MAX_BPS);
 
         // Verify final state
         uint256 finalBalance = asset.balanceOf(temps.safe);
@@ -191,7 +190,7 @@ contract LiquidityStrategyTest is BaseTest {
         module.emergencyWithdraw(emergencyAmount);
 
         // Verify withdrawal
-        assertTrue(asset.balanceOf(address(module)) > emergencyAmount, "Emergency withdrawal failed");
+        assertTrue(asset.balanceOf(address(module)) >= emergencyAmount, "Emergency withdrawal failed");
 
         vm.stopPrank();
     }

@@ -11,11 +11,6 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 /// @notice A strategy that manages liquidity positions in Uniswap V3 pools
 /// @dev Inherits from Module, BaseStrategy, and LiquidityManager
 contract LiquidityStrategy is Module, BaseStrategy, LiquidityManager {
-    // =========== Events ===========
-    event PositionCreated(uint256 indexed tokenId, uint128 liquidity, uint256 amount0, uint256 amount1);
-    event PositionClosed(uint256 indexed tokenId, uint128 liquidity);
-    event LiquidityRemoved(uint256 indexed tokenId, uint128 liquidity, uint256 amount0, uint256 amount1);
-
     // =========== Errors ===========
     error InvalidPool();
     error InvalidAmount();
@@ -101,21 +96,24 @@ contract LiquidityStrategy is Module, BaseStrategy, LiquidityManager {
 
         // Determine which token is the strategy asset
         bool isToken0 = address(asset) == TOKEN0;
-        address otherToken = isToken0 ? TOKEN1 : TOKEN0;
+        // address otherToken = isToken0 ? TOKEN1 : TOKEN0;
 
-        // Split amount for balanced liquidity (half and half)
-        uint256 amount0 = _amount / 2;
-        if (amount0 == 0) return;
+        // // Split amount for balanced liquidity (half and half)
+        // uint256 amount0 = _amount / 2;
+        // if (amount0 == 0) return;
 
-        // Calculate swap amount
-        uint256 swapAmount = _amount - amount0;
+        // // Calculate swap amount
+        // uint256 swapAmount = _amount - amount0;
 
-        // Swap half for other token
-        uint256 amount1 = swapExactInputSingle(address(asset), otherToken, swapAmount, 0);
-        if (amount1 == 0) return;
+        // // Swap half for other token
+        // uint256 amount1 = swapExactInputSingle(address(asset), otherToken, swapAmount, 0);
+        // if (amount1 == 0) return;
 
-        // Order amounts based on token0/token1
-        (uint256 token0Amount, uint256 token1Amount) = isToken0 ? (amount0, amount1) : (amount1, amount0);
+        // // Order amounts based on token0/token1
+        // (uint256 token0Amount, uint256 token1Amount) = isToken0 ? (amount0, amount1) : (amount1, amount0);
+
+        uint256 token0Amount = isToken0 ? _amount : 0;
+        uint256 token1Amount = isToken0 ? 0 : _amount;
 
         // Calculate optimal tick range for position
         (int24 tickLower, int24 tickUpper) = calculateOptimalTicks(token0Amount, token1Amount);
@@ -127,8 +125,6 @@ contract LiquidityStrategy is Module, BaseStrategy, LiquidityManager {
         // Store position details
         positions[positionCount] =
             Position({tokenId: tokenId, liquidity: liquidity, amount0: finalAmount0, amount1: finalAmount1});
-
-        emit PositionCreated(tokenId, liquidity, finalAmount0, finalAmount1);
 
         // Increment position counter
         unchecked {
@@ -207,8 +203,6 @@ contract LiquidityStrategy is Module, BaseStrategy, LiquidityManager {
                 position.liquidity -= liquidity;
                 ++i;
             }
-
-            emit LiquidityRemoved(position.tokenId, liquidity, amount0, amount1);
         }
 
         // Collect and swap all assets

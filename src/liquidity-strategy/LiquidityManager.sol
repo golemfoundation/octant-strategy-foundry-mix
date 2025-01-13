@@ -227,18 +227,21 @@ abstract contract LiquidityManager is IERC721Receiver, Initializable {
         view
         returns (int24 tickLower, int24 tickUpper)
     {
-        if (amount0 == 0 || amount1 == 0) revert InvalidTokenAmount();
+        bool isToken0;
+        if (amount1 == 0) isToken0 = true;
+        if (amount0 == 0) isToken0 = false;
+        if (amount0 != 0 && amount1 != 0) revert InvalidTokenAmount();
 
         // Get current tick and spacing
         (, int24 currentTick,,,,,) = pool.slot0();
         int24 tickSpacing = pool.tickSpacing();
 
         // Calculate range
-        int24 baseRange = tickSpacing * 10;
+        int24 baseRange = tickSpacing * 100;
 
         // Calculate ticks
-        tickLower = ((currentTick - 1000) / tickSpacing) * tickSpacing;
-        tickUpper = ((currentTick + 1000) / tickSpacing) * tickSpacing;
+        tickLower = isToken0 ? currentTick + tickSpacing : currentTick - baseRange;
+        tickUpper = isToken0 ? currentTick + baseRange : currentTick - tickSpacing;
 
         // Validate bounds
         tickLower = _boundTick(tickLower, tickSpacing);
@@ -249,6 +252,7 @@ abstract contract LiquidityManager is IERC721Receiver, Initializable {
     /// @param tick Tick to bound
     /// @param tickSpacing Pool tick spacing
     function _boundTick(int24 tick, int24 tickSpacing) private pure returns (int24) {
+        tick = tick / tickSpacing * tickSpacing;
         if (tick < TickMath.MIN_TICK) {
             return TickMath.MIN_TICK;
         } else if (tick > TickMath.MAX_TICK) {
