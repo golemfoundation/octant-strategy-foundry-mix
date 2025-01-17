@@ -2,15 +2,16 @@
 pragma solidity ^0.8.18;
 pragma abicoder v2;
 
-import "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
+import {IERC721Receiver} from "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import "@uniswap/v3-core/contracts/libraries/TickMath.sol";
-import "@uniswap/v3-periphery/contracts/libraries/TransferHelper.sol";
-import "@uniswap/v3-periphery/contracts/interfaces/INonfungiblePositionManager.sol";
-import "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
-import "@uniswap/swap-router-contracts/contracts/interfaces/IV3SwapRouter.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import {TickMath} from "@uniswap/v3-core/contracts/libraries/TickMath.sol";
+import {TransferHelper} from "@uniswap/v3-periphery/contracts/libraries/TransferHelper.sol";
+import {INonfungiblePositionManager} from "@uniswap/v3-periphery/contracts/interfaces/INonfungiblePositionManager.sol";
+import {IUniswapV3Pool} from "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
+import {IV3SwapRouter} from "@uniswap/swap-router-contracts/contracts/interfaces/IV3SwapRouter.sol";
 
-abstract contract LiquidityManager is IERC721Receiver, Initializable {
+abstract contract LiquidityManager is IERC721Receiver, Initializable, ReentrancyGuard {
     // =========== State Variables ===========
     /// @notice Uniswap V3 position manager contract
     INonfungiblePositionManager public nonfungiblePositionManager;
@@ -19,10 +20,10 @@ abstract contract LiquidityManager is IERC721Receiver, Initializable {
     IUniswapV3Pool public pool;
 
     /// @notice Address of token0 in the pool
-    address public TOKEN0;
+    address public token0;
 
     /// @notice Address of token1 in the pool
-    address public TOKEN1;
+    address public token1;
 
     /// @notice Pool fee tier (0.3% = 3000)
     uint24 public constant POOL_FEE = 3000;
@@ -67,8 +68,8 @@ abstract contract LiquidityManager is IERC721Receiver, Initializable {
         nonfungiblePositionManager = INonfungiblePositionManager(_nonfungiblePositionManager);
         pool = IUniswapV3Pool(_poolAddress);
         swapRouter = IV3SwapRouter(_swapRouter);
-        TOKEN0 = pool.token0();
-        TOKEN1 = pool.token1();
+        token0 = pool.token0();
+        token1 = pool.token1();
     }
 
     // Implementing `onERC721Received` so this contract can receive custody of erc721 tokens
@@ -78,15 +79,17 @@ abstract contract LiquidityManager is IERC721Receiver, Initializable {
         override
         returns (bytes4)
     {
-        require(msg.sender == address(nonfungiblePositionManager), "not a univ3 nft");
+        if (msg.sender != address(nonfungiblePositionManager)) {
+            revert NotUniswapNFT();
+        }
         _createDeposit(operator, tokenId);
         return this.onERC721Received.selector;
     }
 
     function _createDeposit(address owner, uint256 tokenId) internal {
-        (,, address token0, address token1,,,, uint128 liquidity,,,,) = nonfungiblePositionManager.positions(tokenId);
+        (,, address _token0, address _token1,,,, uint128 liquidity,,,,) = nonfungiblePositionManager.positions(tokenId);
         // set the owner and data for position
-        deposits[tokenId] = Deposit({owner: owner, liquidity: liquidity, token0: token0, token1: token1});
+        deposits[tokenId] = Deposit({owner: owner, liquidity: liquidity, token0: _token0, token1: _token1});
     }
 
     /// @notice Calls the mint function defined in periphery, mints the same amount of each token.
@@ -103,14 +106,14 @@ abstract contract LiquidityManager is IERC721Receiver, Initializable {
         returns (uint256 tokenId, uint128 liquidity, uint256 amount0, uint256 amount1)
     {
         // Approve the position manager
-        TransferHelper.safeApprove(TOKEN0, address(nonfungiblePositionManager), amount0ToMint);
-        TransferHelper.safeApprove(TOKEN1, address(nonfungiblePositionManager), amount1ToMint);
+        TransferHelper.safeApprove(token0, address(nonfungiblePositionManager), amount0ToMint);
+        TransferHelper.safeApprove(token1, address(nonfungiblePositionManager), amount1ToMint);
 
         // The values for tickLower and tickUpper may not work for all tick spacings.
         // Setting amount0Min and amount1Min to 0 is unsafe.
         INonfungiblePositionManager.MintParams memory params = INonfungiblePositionManager.MintParams({
-            token0: TOKEN0,
-            token1: TOKEN1,
+            token0: token0,
+            token1: token1,
             fee: POOL_FEE,
             tickLower: tickLower,
             tickUpper: tickUpper,
@@ -122,7 +125,7 @@ abstract contract LiquidityManager is IERC721Receiver, Initializable {
             deadline: block.timestamp
         });
 
-        // Note that the pool defined by TOKEN0/TOKEN1 and fee tier 0.3% must already be created and initialized in order to mint
+        // Note that the pool defined by token0/token1 and fee tier 0.3% must already be created and initialized in order to mint
         (tokenId, liquidity, amount0, amount1) = nonfungiblePositionManager.mint(params);
 
         // Create a deposit
@@ -131,15 +134,15 @@ abstract contract LiquidityManager is IERC721Receiver, Initializable {
 
         // Remove allowance and refund in both assets.
         if (amount0 < amount0ToMint) {
-            TransferHelper.safeApprove(TOKEN0, address(nonfungiblePositionManager), 0);
+            TransferHelper.safeApprove(token0, address(nonfungiblePositionManager), 0);
             uint256 refund0 = amount0ToMint - amount0;
-            TransferHelper.safeTransfer(TOKEN0, msg.sender, refund0);
+            TransferHelper.safeTransfer(token0, msg.sender, refund0);
         }
 
         if (amount1 < amount1ToMint) {
-            TransferHelper.safeApprove(TOKEN1, address(nonfungiblePositionManager), 0);
+            TransferHelper.safeApprove(token1, address(nonfungiblePositionManager), 0);
             uint256 refund1 = amount1ToMint - amount1;
-            TransferHelper.safeTransfer(TOKEN1, msg.sender, refund1);
+            TransferHelper.safeTransfer(token1, msg.sender, refund1);
         }
     }
 
@@ -165,9 +168,13 @@ abstract contract LiquidityManager is IERC721Receiver, Initializable {
     /// @return liquidity The amount of liquidity removed
     /// @return amount0 The amount received back in token0
     /// @return amount1 The amount returned back in token1
-    function removeLiquidity(uint256 tokenId) internal returns (uint128 liquidity, uint256 amount0, uint256 amount1) {
+    function removeLiquidity(uint256 tokenId)
+        internal
+        nonReentrant
+        returns (uint128 liquidity, uint256 amount0, uint256 amount1)
+    {
         // caller must be the owner of the NFT
-        require(msg.sender == deposits[tokenId].owner, "Not the owner");
+        if (msg.sender != deposits[tokenId].owner) revert NotPositionOwner();
 
         // Get and update liquidity
         liquidity = deposits[tokenId].liquidity;
@@ -227,7 +234,7 @@ abstract contract LiquidityManager is IERC721Receiver, Initializable {
         view
         returns (int24 tickLower, int24 tickUpper)
     {
-        bool isToken0;
+        bool isToken0 = false;
         if (amount1 == 0) isToken0 = true;
         if (amount0 == 0) isToken0 = false;
         if (amount0 != 0 && amount1 != 0) revert InvalidTokenAmount();
@@ -252,7 +259,7 @@ abstract contract LiquidityManager is IERC721Receiver, Initializable {
     /// @param tick Tick to bound
     /// @param tickSpacing Pool tick spacing
     function _boundTick(int24 tick, int24 tickSpacing) private pure returns (int24) {
-        tick = tick / tickSpacing * tickSpacing;
+        tick = (tick / tickSpacing) * tickSpacing;
         if (tick < TickMath.MIN_TICK) {
             return TickMath.MIN_TICK;
         } else if (tick > TickMath.MAX_TICK) {

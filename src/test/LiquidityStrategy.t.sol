@@ -1,30 +1,31 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.18;
 
-import "./Base.t.sol";
-import {DragonTokenizedStrategy} from "octant-v2-core/src/dragons/DragonTokenizedStrategy.sol";
-import {LiquidityStrategy} from "../liquidity-strategy/LiquidityStrategy.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {IUniswapV3Pool} from "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
-import {ILiquidityStrategyInterface} from "../interfaces/ILiquidityStrategyInterface.sol";
 import {INonfungiblePositionManager} from "@uniswap/v3-periphery/contracts/interfaces/INonfungiblePositionManager.sol";
+import {DragonTokenizedStrategy} from "octant-v2-core/src/dragons/vaults/DragonTokenizedStrategy.sol";
+import {TokenizedStrategy__NotOwner} from "octant-v2-core/src/errors.sol";
 import {console2} from "forge-std/console2.sol";
+import {BaseTest} from "./Base.t.sol";
+import {LiquidityStrategy} from "../liquidity-strategy/LiquidityStrategy.sol";
+import {ILiquidityStrategyInterface} from "../interfaces/ILiquidityStrategyInterface.sol";
 
 /// @title Liquidity Strategy Test Suite
 /// @notice Comprehensive test suite for the LiquidityStrategy contract
 /// @dev Inherits from BaseTest for common test functionality
 contract LiquidityStrategyTest is BaseTest {
     // =========== Constants ===========
-    uint256 constant INITIAL_DEPOSIT = 1e11;
-    uint256 constant MAX_BPS = 10_000;
+    uint256 public constant INITIAL_DEPOSIT = 1e11;
+    uint256 public constant MAX_BPS = 10_000;
 
     // =========== Test State Variables ===========
     address public management;
     address public keeper;
     address public dragonRouter;
+    address public regenGovernance;
     uint256 public maxReportDelay;
 
-    testTemps public temps;
+    TestTemps public temps;
     ILiquidityStrategyInterface public module;
     address public tokenizedStrategyImplementation;
     address public moduleImplementation;
@@ -58,6 +59,7 @@ contract LiquidityStrategyTest is BaseTest {
         management = makeAddr("management");
         keeper = makeAddr("keeper");
         dragonRouter = makeAddr("dragonRouter");
+        regenGovernance = makeAddr("regenGovernance");
         maxReportDelay = 7 days;
 
         // Deploy implementations
@@ -82,7 +84,8 @@ contract LiquidityStrategyTest is BaseTest {
                 keeper,
                 dragonRouter,
                 maxReportDelay,
-                "LiquidityStrategy"
+                "LiquidityStrategy",
+                regenGovernance
             )
         );
         module = ILiquidityStrategyInterface(payable(temps.module));
@@ -99,8 +102,9 @@ contract LiquidityStrategyTest is BaseTest {
         assertTrue(module.nonfungiblePositionManager() == UNISWAP_V3_POSITION_MANAGER);
         assertTrue(module.pool() == UNISWAP_V3_POOL);
         assertTrue(module.swapRouter() == UNISWAP_V3_ROUTER);
-        assertTrue(module.TOKEN0() == address(token0));
-        assertTrue(module.TOKEN1() == address(token1));
+        assertTrue(module.token0() == address(token0));
+        assertTrue(module.token1() == address(token1));
+        assertTrue(module.regenGovernance() == regenGovernance);
     }
 
     /// @notice Test deploying funds into a new position
@@ -133,7 +137,6 @@ contract LiquidityStrategyTest is BaseTest {
 
         // Record initial state
         uint256 initialBalance = asset.balanceOf(temps.safe);
-        (uint256 tokenId, uint128 initialLiquidity, uint256 posAmount0, uint256 posAmount1) = module.positions(0);
 
         // Execute withdrawal
         module.withdraw(INITIAL_DEPOSIT / 2, temps.safe, temps.safe, MAX_BPS);
@@ -201,7 +204,7 @@ contract LiquidityStrategyTest is BaseTest {
         deal(address(asset), temps.safe, amount, true);
 
         // Verify authorization
-        vm.expectRevert("Unauthorized");
+        vm.expectRevert(TokenizedStrategy__NotOwner.selector);
         module.deposit(amount, temps.safe);
 
         vm.startPrank(temps.safe);
@@ -219,7 +222,7 @@ contract LiquidityStrategyTest is BaseTest {
     /// @notice Helper function to view position details
     /// @param count Position count to view
     function _viewPosition(uint256 count) internal view {
-        (uint256 tokenId, uint128 liquidity, uint256 amount0, uint256 amount1) = module.positions(count);
+        (uint256 tokenId, uint128 liquidity,,) = module.positions(count);
         (,, address _token0, address _token1, uint24 _fee, int24 _tickLower, int24 _tickUpper,,,,,) =
             INonfungiblePositionManager(UNISWAP_V3_POSITION_MANAGER).positions(tokenId);
 

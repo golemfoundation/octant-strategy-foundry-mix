@@ -1,16 +1,15 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.18;
 
-import "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
-import {BaseStrategy, ERC20} from "octant-v2-core/src/dragons/BaseStrategy.sol";
+import {IUniswapV3Pool} from "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
+import {DragonBaseStrategy} from "octant-v2-core/src/dragons/vaults/DragonBaseStrategy.sol";
 import {Module} from "zodiac/core/Module.sol";
 import {LiquidityManager} from "./LiquidityManager.sol";
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 /// @title Liquidity Strategy for Uniswap V3
 /// @notice A strategy that manages liquidity positions in Uniswap V3 pools
-/// @dev Inherits from Module, BaseStrategy, and LiquidityManager
-contract LiquidityStrategy is Module, BaseStrategy, LiquidityManager {
+/// @dev Inherits from Module, DragonBaseStrategy, and LiquidityManager
+contract LiquidityStrategy is Module, DragonBaseStrategy, LiquidityManager {
     // =========== Errors ===========
     error InvalidPool();
     error InvalidAmount();
@@ -31,6 +30,10 @@ contract LiquidityStrategy is Module, BaseStrategy, LiquidityManager {
     /// @notice Mapping of position index to Position struct
     mapping(uint256 => Position) public positions;
 
+    constructor() {
+        _disableInitializers();
+    }
+
     /// @dev Initialize function, will be triggered when a new proxy is deployed
     /// @dev owner of this module will the safe multisig that calls setUp function
     /// @param initializeParams Parameters of initialization encoded
@@ -47,8 +50,11 @@ contract LiquidityStrategy is Module, BaseStrategy, LiquidityManager {
             address _keeper,
             address _dragonRouter,
             uint256 _maxReportDelay,
-            string memory _name
-        ) = abi.decode(data, (address, address, address, address, address, address, address, address, uint256, string));
+            string memory _name,
+            address _regenGovernance
+        ) = abi.decode(
+            data, (address, address, address, address, address, address, address, address, uint256, string, address)
+        );
 
         // Validate pool contains strategy asset
         if (IUniswapV3Pool(_poolAddress).token0() != _asset && IUniswapV3Pool(_poolAddress).token1() != _asset) {
@@ -66,7 +72,8 @@ contract LiquidityStrategy is Module, BaseStrategy, LiquidityManager {
             _keeper,
             _dragonRouter,
             _maxReportDelay,
-            _name
+            _name,
+            _regenGovernance
         );
 
         // Set up module permissions
@@ -95,8 +102,8 @@ contract LiquidityStrategy is Module, BaseStrategy, LiquidityManager {
         if (_amount == 0) revert InvalidAmount();
 
         // Determine which token is the strategy asset
-        bool isToken0 = address(asset) == TOKEN0;
-        // address otherToken = isToken0 ? TOKEN1 : TOKEN0;
+        bool isToken0 = address(asset) == token0;
+        // address otherToken = isToken0 ? TOKEN1 : token0;
 
         // // Split amount for balanced liquidity (half and half)
         // uint256 amount0 = _amount / 2;
@@ -135,7 +142,7 @@ contract LiquidityStrategy is Module, BaseStrategy, LiquidityManager {
     /// @notice Collect fees from all positions and swap to strategy asset
     /// @return Total amount collected in strategy asset
     function collectAllAndSwap() internal returns (uint256) {
-        bool isToken0 = address(asset) == TOKEN0;
+        bool isToken0 = address(asset) == token0;
         uint256 totalAmountOut0;
         uint256 totalAmountOut1;
 
@@ -152,7 +159,7 @@ contract LiquidityStrategy is Module, BaseStrategy, LiquidityManager {
         }
 
         // Swap collected fees to strategy asset
-        address swapToken = isToken0 ? TOKEN1 : TOKEN0;
+        address swapToken = isToken0 ? token1 : token0;
         uint256 swapAmount = isToken0 ? totalAmountOut1 : totalAmountOut0;
 
         if (swapAmount > 0) {

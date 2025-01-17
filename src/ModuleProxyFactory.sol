@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: LGPL-3.0-only
-pragma solidity >=0.8.0;
+pragma solidity ^0.8.25;
 
 import {ISafe} from "octant-v2-core/src/interfaces/Safe.sol";
 

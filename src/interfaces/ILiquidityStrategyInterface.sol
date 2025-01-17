@@ -8,8 +8,8 @@ interface ILiquidityStrategyInterface is IStrategy {
     function pool() external view returns (address);
     function nonfungiblePositionManager() external view returns (address);
     function swapRouter() external view returns (address);
-    function TOKEN0() external view returns (address);
-    function TOKEN1() external view returns (address);
+    function token0() external view returns (address);
+    function token1() external view returns (address);
     function positions(uint256 index)
         external
         view

@@ -29,13 +29,13 @@ snapshot :; forge snapshot -vv --fork-url ${FORK_URL}
 snapshot-diff :; forge snapshot --diff -vv --fork-url ${FORK_URL}
 trace-setup  :; forge test -vvvv --fork-url ${FORK_URL}
 trace-max  :; forge test -vvvvv --fork-url ${FORK_URL}
-coverage :; forge coverage --fork-url ${FORK_URL}
-coverage-report :; forge coverage --report lcov --fork-url ${FORK_URL}
-coverage-debug :; forge coverage --report debug --fork-url ${FORK_URL}
+coverage :; forge coverage --ir-minimum --fork-url ${FORK_URL}
+coverage-report :; forge coverage --ir-minimum --report lcov --fork-url ${FORK_URL}
+coverage-debug :; forge coverage --ir-minimum --report debug --fork-url ${FORK_URL}
 
 coverage-html:
 	@echo "Running coverage..."
-	forge coverage --report lcov --fork-url ${FORK_URL}
+	forge coverage --ir-minimum --report lcov --fork-url ${FORK_URL}
 	@if [ "`uname`" = "Darwin" ]; then \
 		lcov --ignore-errors inconsistent --remove lcov.info 'src/test/**' --output-file lcov.info; \
 		genhtml --ignore-errors inconsistent -o coverage-report lcov.info; \

@@ -1,25 +1,26 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.13;
+pragma solidity ^0.8.25;
 
-import "./Base.t.sol";
-import {DragonTokenizedStrategy} from "octant-v2-core/src/dragons/DragonTokenizedStrategy.sol";
+import {BaseTest} from "./Base.t.sol";
+import {DragonTokenizedStrategy} from "octant-v2-core/src/dragons/vaults/DragonTokenizedStrategy.sol";
 import {Strategy} from "../Strategy.sol";
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IStrategy} from "octant-v2-core/src/interfaces/IStrategy.sol";
 
 contract StrategyTest is BaseTest {
-    address management = makeAddr("management");
-    address keeper = makeAddr("keeper");
-    address dragonRouter = makeAddr("dragonRouter");
-    uint256 maxReportDelay = 7 days;
+    address public management = makeAddr("management");
+    address public keeper = makeAddr("keeper");
+    address public dragonRouter = makeAddr("dragonRouter");
+    address public regenGovernance = makeAddr("regenGovernance");
+    uint256 public maxReportDelay = 7 days;
 
-    testTemps temps;
-    address tokenizedStrategyImplementation;
-    address moduleImplementation;
-    IStrategy module;
-    address yieldSource = makeAddr("yieldSource");
-    IERC20 asset;
+    TestTemps public temps;
+    address public tokenizedStrategyImplementation;
+    address public moduleImplementation;
+    IStrategy public module;
+    address public yieldSource = makeAddr("yieldSource");
+    IERC20 public asset;
 
     function setUp() public {
         _configure(true, "celo");
@@ -36,7 +37,8 @@ contract StrategyTest is BaseTest {
                 keeper,
                 dragonRouter,
                 maxReportDelay,
-                "Strategy"
+                "Strategy",
+                regenGovernance
             )
         );
         module = IStrategy(payable(temps.module));
@@ -50,6 +52,7 @@ contract StrategyTest is BaseTest {
         assertTrue(module.dragonRouter() == dragonRouter);
         assertTrue(module.tokenizedStrategyImplementation() == address(tokenizedStrategyImplementation));
         assertTrue(module.maxReportDelay() == maxReportDelay);
+        assertTrue(module.regenGovernance() == regenGovernance);
     }
 
     function testDeployFunds() public {

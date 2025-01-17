@@ -1,11 +1,15 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity >=0.8.18;
 
-import {BaseStrategy, ERC20} from "octant-v2-core/src/dragons/BaseStrategy.sol";
+import {DragonBaseStrategy, ERC20} from "octant-v2-core/src/dragons/vaults/DragonBaseStrategy.sol";
 import {Module} from "zodiac/core/Module.sol";
 
-contract Strategy is Module, BaseStrategy {
+contract Strategy is Module, DragonBaseStrategy {
     address public yieldSource;
+
+    constructor() {
+        _disableInitializers();
+    }
 
     /// @dev Initialize function, will be triggered when a new proxy is deployed
     /// @dev owner of this module will the safe multisig that calls setUp function
@@ -21,8 +25,9 @@ contract Strategy is Module, BaseStrategy {
             address _keeper,
             address _dragonRouter,
             uint256 _maxReportDelay,
-            string memory _name
-        ) = abi.decode(data, (address, address, address, address, address, address, uint256, string));
+            string memory _name,
+            address _regenGovernance
+        ) = abi.decode(data, (address, address, address, address, address, address, uint256, string, address));
 
         __Ownable_init(msg.sender);
         __BaseStrategy_init(
@@ -33,12 +38,15 @@ contract Strategy is Module, BaseStrategy {
             _keeper,
             _dragonRouter,
             _maxReportDelay,
-            _name
+            _name,
+            _regenGovernance
         );
 
         yieldSource = _yieldSource;
 
-        if (_asset != ETH) ERC20(_asset).approve(yieldSource, type(uint256).max);
+        if (_asset != ETH) {
+            ERC20(_asset).approve(yieldSource, type(uint256).max);
+        }
 
         setAvatar(_owner);
         setTarget(_owner);
@@ -247,7 +255,6 @@ contract Strategy is Module, BaseStrategy {
      */
     function _emergencyWithdraw(uint256 _amount) internal override {
         // TODO: If desired implement simple logic to free deployed funds.
-
         // EX:
         // _amount = min(_amount, aToken.balanceOf(address(this)));
         // _freeFunds(_amount);

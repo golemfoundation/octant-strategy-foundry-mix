@@ -5,7 +5,6 @@ forge-std/=lib/octant-v2-core/lib/forge-std/src/
 octant-v2-core/=lib/octant-v2-core/
 openzeppelin-contracts-upgradeable/=lib/octant-v2-core/lib/openzeppelin-contracts-upgradeable/
 openzeppelin-contracts/=lib/octant-v2-core/lib/openzeppelin-contracts/
-tokenized-strategy-periphery/=lib/tokenized-strategy-periphery/
 zodiac/=lib/octant-v2-core/lib/zodiac/contracts/
 @uniswap/v3-core/=lib/v3-core/
 @uniswap/v3-periphery/=lib/v3-periphery/
