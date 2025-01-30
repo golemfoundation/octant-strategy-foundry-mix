@@ -4,7 +4,7 @@ pragma solidity ^0.8.25;
 import {Test} from "forge-std/Test.sol";
 import {TestPlus} from "solady/test/utils/TestPlus.sol";
 import {ModuleProxyFactory} from "../ModuleProxyFactory.sol";
-import {TestERC20} from "octant-v2-core/src/test/TestERC20.sol";
+import {MockERC20} from "octant-v2-core/test/mocks/MockERC20.sol";
 import {SafeProxyFactory, SafeProxy} from "@gnosis.pm/safe-contracts/contracts/proxies/SafeProxyFactory.sol";
 import {Safe} from "@gnosis.pm/safe-contracts/contracts/Safe.sol";
 import {ISafe} from "octant-v2-core/src/interfaces/Safe.sol";
@@ -24,7 +24,7 @@ contract BaseTest is Test, TestPlus {
     uint256 public threshold = 1;
     uint256 public fork;
     ModuleProxyFactory public moduleFactory;
-    TestERC20 public token;
+    MockERC20 public token;
     address[] public owners;
 
     function _configure(bool _useFork, string memory _chain) internal {
@@ -52,7 +52,7 @@ contract BaseTest is Test, TestPlus {
         // deploy module proxy factory and test erc20 asset
         moduleFactory = new ModuleProxyFactory();
 
-        token = new TestERC20();
+        token = new MockERC20();
     }
 
     function _testTemps(address moduleImplementation, bytes memory moduleData) internal returns (TestTemps memory t) {
