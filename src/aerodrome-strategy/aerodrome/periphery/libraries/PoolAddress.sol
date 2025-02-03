@@ -39,7 +39,11 @@ library PoolAddress {
     /**
      * @dev Computes the address of a clone deployed using {Clones-cloneDeterministic}.
      */
-    function predictDeterministicAddress(address master, bytes32 salt, address deployer) internal pure returns (address predicted) {
+    function predictDeterministicAddress(address master, bytes32 salt, address deployer)
+        internal
+        pure
+        returns (address predicted)
+    {
         // solhint-disable-next-line no-inline-assembly
         assembly {
             let ptr := mload(0x40)
