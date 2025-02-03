@@ -15,6 +15,7 @@
     "openzeppelin-contracts-upgradeable/=lib/octant-v2-core/lib/openzeppelin-contracts-upgradeable/",
     "openzeppelin-contracts/=lib/octant-v2-core/lib/openzeppelin-contracts/",
     "zodiac/=lib/octant-v2-core/lib/zodiac/contracts/",
+    "solady/=lib/octant-v2-core/lib/solady/",
     "@uniswap/v3-core/=lib/v3-core/",
     "@uniswap/v3-periphery/=lib/v3-periphery/",
     "@uniswap/swap-router-contracts/=lib/swap-router-contracts/"
