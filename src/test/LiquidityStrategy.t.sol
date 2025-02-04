@@ -4,7 +4,7 @@ pragma solidity ^0.8.18;
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {INonfungiblePositionManager} from "@uniswap/v3-periphery/contracts/interfaces/INonfungiblePositionManager.sol";
 import {DragonTokenizedStrategy} from "octant-v2-core/src/dragons/vaults/DragonTokenizedStrategy.sol";
-import {TokenizedStrategy__NotOwner} from "octant-v2-core/src/errors.sol";
+import {TokenizedStrategy__NotOperator} from "octant-v2-core/src/errors.sol";
 import {console2} from "forge-std/console2.sol";
 import {BaseTest} from "./Base.t.sol";
 import {LiquidityStrategy} from "../liquidity-strategy/LiquidityStrategy.sol";
@@ -198,13 +198,18 @@ contract LiquidityStrategyTest is BaseTest {
         vm.stopPrank();
     }
 
+    function testTendTrigger() public view {
+        (bool trigger,) = module.tendTrigger();
+        assertTrue(trigger);
+    }
+
     /// @notice Helper function to deposit funds
     /// @param amount Amount to deposit
     function _deposit(uint256 amount) internal {
         deal(address(asset), temps.safe, amount, true);
 
         // Verify authorization
-        vm.expectRevert(TokenizedStrategy__NotOwner.selector);
+        vm.expectRevert(TokenizedStrategy__NotOperator.selector);
         module.deposit(amount, temps.safe);
 
         vm.startPrank(temps.safe);

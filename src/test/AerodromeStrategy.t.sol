@@ -2,9 +2,10 @@
 pragma solidity ^0.8.18;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {INonfungiblePositionManager} from "@uniswap/v3-periphery/contracts/interfaces/INonfungiblePositionManager.sol";
+import {INonfungiblePositionManager} from
+    "../aerodrome-strategy/aerodrome/periphery/interfaces/INonfungiblePositionManager.sol";
 import {DragonTokenizedStrategy} from "octant-v2-core/src/dragons/vaults/DragonTokenizedStrategy.sol";
-import {TokenizedStrategy__NotOwner} from "octant-v2-core/src/errors.sol";
+import {TokenizedStrategy__NotOperator} from "octant-v2-core/src/errors.sol";
 import {console2} from "forge-std/console2.sol";
 import {BaseTest} from "./Base.t.sol";
 import {AerodromeStrategy} from "../aerodrome-strategy/AerodromeStrategy.sol";
@@ -30,16 +31,10 @@ contract AerodromeStrategyTest is BaseTest {
     address public tokenizedStrategyImplementation;
     address public moduleImplementation;
 
-    // Mainnet addresses
-    // address public constant UNISWAP_V3_POSITION_MANAGER = 0xC36442b4a4522E871399CD717aBDD847Ab11FE88;
-    // address public constant UNISWAP_V3_POOL = 0x99ac8cA7087fA4A2A1FB6357269965A2014ABc35;
-    // address public constant UNISWAP_V3_ROUTER = 0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45;
-    // address public constant WBTC = 0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599;
-    // address public constant USDC = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
-    // Celo addresses
-    address public constant UNISWAP_V3_POSITION_MANAGER = 0x827922686190790b37229fd06084350E74485b72;
-    address public constant UNISWAP_V3_POOL = 0xBE00fF35AF70E8415D0eB605a286D8A45466A4c1;
-    address public constant UNISWAP_V3_ROUTER = 0xBE6D8f0d05cC4be24d5167a3eF062215bE6D18a5;
+    // Base addresses
+    address public constant AERODROME_POSITION_MANAGER = 0x827922686190790b37229fd06084350E74485b72;
+    address public constant AERODROME_POOL = 0xBE00fF35AF70E8415D0eB605a286D8A45466A4c1;
+    address public constant AERODROME_ROUTER = 0xBE6D8f0d05cC4be24d5167a3eF062215bE6D18a5;
     address public constant WETH = 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913;
     address public constant USDC = 0x940181a94A35A4569E4529A3CDfB74e38FD98631;
 
@@ -75,9 +70,9 @@ contract AerodromeStrategyTest is BaseTest {
         temps = _testTemps(
             moduleImplementation,
             abi.encode(
-                UNISWAP_V3_POSITION_MANAGER,
-                UNISWAP_V3_ROUTER,
-                UNISWAP_V3_POOL,
+                AERODROME_POSITION_MANAGER,
+                AERODROME_ROUTER,
+                AERODROME_POOL,
                 tokenizedStrategyImplementation,
                 address(asset),
                 management,
@@ -99,9 +94,9 @@ contract AerodromeStrategyTest is BaseTest {
         assertTrue(module.dragonRouter() == dragonRouter);
         assertTrue(module.tokenizedStrategyImplementation() == tokenizedStrategyImplementation);
         assertTrue(module.maxReportDelay() == maxReportDelay);
-        assertTrue(module.nonfungiblePositionManager() == UNISWAP_V3_POSITION_MANAGER);
-        assertTrue(module.pool() == UNISWAP_V3_POOL);
-        assertTrue(module.swapRouter() == UNISWAP_V3_ROUTER);
+        assertTrue(module.nonfungiblePositionManager() == AERODROME_POSITION_MANAGER);
+        assertTrue(module.pool() == AERODROME_POOL);
+        assertTrue(module.swapRouter() == AERODROME_ROUTER);
         assertTrue(module.token0() == address(token0));
         assertTrue(module.token1() == address(token1));
         assertTrue(module.regenGovernance() == regenGovernance);
@@ -198,13 +193,18 @@ contract AerodromeStrategyTest is BaseTest {
         vm.stopPrank();
     }
 
+    function testTendTrigger() public view {
+        (bool trigger,) = module.tendTrigger();
+        assertTrue(trigger);
+    }
+
     /// @notice Helper function to deposit funds
     /// @param amount Amount to deposit
     function _deposit(uint256 amount) internal {
         deal(address(asset), temps.safe, amount, true);
 
         // Verify authorization
-        vm.expectRevert(TokenizedStrategy__NotOwner.selector);
+        vm.expectRevert(TokenizedStrategy__NotOperator.selector);
         module.deposit(amount, temps.safe);
 
         vm.startPrank(temps.safe);
@@ -223,12 +223,12 @@ contract AerodromeStrategyTest is BaseTest {
     /// @param count Position count to view
     function _viewPosition(uint256 count) internal view {
         (uint256 tokenId, uint128 liquidity,,) = module.positions(count);
-        (,, address _token0, address _token1, uint24 _fee, int24 _tickLower, int24 _tickUpper,,,,,) =
-            INonfungiblePositionManager(UNISWAP_V3_POSITION_MANAGER).positions(tokenId);
+        (,, address _token0, address _token1, int24 _tickSpacing, int24 _tickLower, int24 _tickUpper,,,,,) =
+            INonfungiblePositionManager(AERODROME_POSITION_MANAGER).positions(tokenId);
 
         console2.log("Position token0", _token0);
         console2.log("Position token1", _token1);
-        console2.log("Position fee", _fee);
+        console2.log("Position tickSpacing", _tickSpacing);
         console2.log("Position tickLower", _tickLower);
         console2.log("Position tickUpper", _tickUpper);
         console2.log("Position liquidity", uint256(liquidity));

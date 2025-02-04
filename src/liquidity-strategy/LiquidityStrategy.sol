@@ -103,21 +103,6 @@ contract LiquidityStrategy is Module, DragonBaseStrategy, LiquidityManager {
 
         // Determine which token is the strategy asset
         bool isToken0 = address(asset) == token0;
-        // address otherToken = isToken0 ? TOKEN1 : token0;
-
-        // // Split amount for balanced liquidity (half and half)
-        // uint256 amount0 = _amount / 2;
-        // if (amount0 == 0) return;
-
-        // // Calculate swap amount
-        // uint256 swapAmount = _amount - amount0;
-
-        // // Swap half for other token
-        // uint256 amount1 = swapExactInputSingle(address(asset), otherToken, swapAmount, 0);
-        // if (amount1 == 0) return;
-
-        // // Order amounts based on token0/token1
-        // (uint256 token0Amount, uint256 token1Amount) = isToken0 ? (amount0, amount1) : (amount1, amount0);
 
         uint256 token0Amount = isToken0 ? _amount : 0;
         uint256 token1Amount = isToken0 ? 0 : _amount;
@@ -321,7 +306,10 @@ contract LiquidityStrategy is Module, DragonBaseStrategy, LiquidityManager {
      *
      */
     function _tend(uint256 /*_totalIdle*/ ) internal override {
-        _deployFunds(asset.balanceOf(address(this)));
+        uint256 balance = asset.balanceOf(address(this));
+        if (balance > 0) {
+            _deployFunds(balance);
+        }
     }
 
     /**

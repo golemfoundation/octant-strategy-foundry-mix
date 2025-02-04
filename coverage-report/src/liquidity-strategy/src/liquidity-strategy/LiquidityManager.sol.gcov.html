@@ -37,7 +37,7 @@
           </tr>
           <tr>
             <td class="headerItem">Test Date:</td>
-            <td class="headerValue">2025-01-30 14:53:07</td>
+            <td class="headerValue">2025-02-04 23:25:49</td>
             <td></td>
             <td class="headerItem">Functions:</td>
             <td class="headerCovTableEntryMed">77.8&nbsp;%</td>
@@ -123,15 +123,15 @@
 <span id="L61"><span class="lineNum">      61</span>              :     /// @param _nonfungiblePositionManager Address of Uniswap V3 NFT manager</span>
 <span id="L62"><span class="lineNum">      62</span>              :     /// @param _poolAddress Address of Uniswap V3 pool</span>
 <span id="L63"><span class="lineNum">      63</span>              :     /// @param _swapRouter Address of Uniswap V3 swap router</span>
-<span id="L64"><span class="lineNum">      64</span> <span class="tlaGNC tlaBgGNC">           8 :     function __LiquidityManager_init(address _nonfungiblePositionManager, address _poolAddress, address _swapRouter)</span></span>
+<span id="L64"><span class="lineNum">      64</span> <span class="tlaGNC tlaBgGNC">           9 :     function __LiquidityManager_init(address _nonfungiblePositionManager, address _poolAddress, address _swapRouter)</span></span>
 <span id="L65"><span class="lineNum">      65</span>              :         internal</span>
 <span id="L66"><span class="lineNum">      66</span>              :         onlyInitializing</span>
 <span id="L67"><span class="lineNum">      67</span>              :     {</span>
-<span id="L68"><span class="lineNum">      68</span> <span class="tlaGNC">           8 :         nonfungiblePositionManager = INonfungiblePositionManager(_nonfungiblePositionManager);</span></span>
-<span id="L69"><span class="lineNum">      69</span> <span class="tlaGNC">           8 :         pool = IUniswapV3Pool(_poolAddress);</span></span>
-<span id="L70"><span class="lineNum">      70</span> <span class="tlaGNC">           8 :         swapRouter = IV3SwapRouter(_swapRouter);</span></span>
-<span id="L71"><span class="lineNum">      71</span> <span class="tlaGNC">           8 :         token0 = pool.token0();</span></span>
-<span id="L72"><span class="lineNum">      72</span> <span class="tlaGNC">           8 :         token1 = pool.token1();</span></span>
+<span id="L68"><span class="lineNum">      68</span> <span class="tlaGNC">           9 :         nonfungiblePositionManager = INonfungiblePositionManager(_nonfungiblePositionManager);</span></span>
+<span id="L69"><span class="lineNum">      69</span> <span class="tlaGNC">           9 :         pool = IUniswapV3Pool(_poolAddress);</span></span>
+<span id="L70"><span class="lineNum">      70</span> <span class="tlaGNC">           9 :         swapRouter = IV3SwapRouter(_swapRouter);</span></span>
+<span id="L71"><span class="lineNum">      71</span> <span class="tlaGNC">           9 :         token0 = pool.token0();</span></span>
+<span id="L72"><span class="lineNum">      72</span> <span class="tlaGNC">           9 :         token1 = pool.token1();</span></span>
 <span id="L73"><span class="lineNum">      73</span>              :     }</span>
 <span id="L74"><span class="lineNum">      74</span>              : </span>
 <span id="L75"><span class="lineNum">      75</span>              :     // Implementing `onERC721Received` so this contract can receive custody of erc721 tokens</span>

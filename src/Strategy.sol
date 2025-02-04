@@ -7,6 +7,9 @@ import {Module} from "zodiac/core/Module.sol";
 contract Strategy is Module, DragonBaseStrategy {
     address public yieldSource;
 
+    event LogDeployFunds(uint256 amount);
+    event LogFreeFunds(uint256 amount);
+
     constructor() {
         _disableInitializers();
     }
@@ -72,6 +75,7 @@ contract Strategy is Module, DragonBaseStrategy {
         // TODO: implement deposit logic EX:
         //
         //      lendingPool.deposit(address(asset), _amount ,0);
+        emit LogDeployFunds(_amount);
     }
 
     /**
@@ -99,6 +103,7 @@ contract Strategy is Module, DragonBaseStrategy {
         // TODO: implement withdraw logic EX:
         //
         //      lendingPool.withdraw(address(asset), _amount);
+        emit LogFreeFunds(_amount);
     }
 
     /**
@@ -131,7 +136,8 @@ contract Strategy is Module, DragonBaseStrategy {
         //      }
         //      _totalAssets = aToken.balanceOf(address(this)) + asset.balanceOf(address(this));
         //
-        _totalAssets = asset.balanceOf(address(this));
+        _freeFunds(type(uint256).max);
+        return asset.balanceOf(address(this));
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -156,18 +162,18 @@ contract Strategy is Module, DragonBaseStrategy {
      * @param . The address that is withdrawing from the strategy.
      * @return . The available amount that can be withdrawn in terms of `asset`
      */
-    function availableWithdrawLimit(address /*_owner*/ ) public view override returns (uint256) {
-        // NOTE: Withdraw limitations such as liquidity constraints should be accounted for HERE
-        //  rather than _freeFunds in order to not count them as losses on withdraws.
+    // function availableWithdrawLimit(address /*_owner*/ ) public view override returns (uint256) {
+    //     // NOTE: Withdraw limitations such as liquidity constraints should be accounted for HERE
+    //     //  rather than _freeFunds in order to not count them as losses on withdraws.
 
-        // TODO: If desired implement withdraw limit logic and any needed state variables.
+    //     // TODO: If desired implement withdraw limit logic and any needed state variables.
 
-        // EX:
-        // if(yieldSource.notShutdown()) {
-        //    return asset.balanceOf(address(this)) + asset.balanceOf(yieldSource);
-        // }
-        return asset.balanceOf(address(this));
-    }
+    //     // EX:
+    //     // if(yieldSource.notShutdown()) {
+    //     //    return asset.balanceOf(address(this)) + asset.balanceOf(yieldSource);
+    //     // }
+    //     return asset.balanceOf(address(this));
+    // }
 
     /**
      * @notice Gets the max amount of `asset` that an address can deposit.
@@ -190,14 +196,14 @@ contract Strategy is Module, DragonBaseStrategy {
      * @param . The address that is depositing into the strategy.
      * @return . The available amount the `_owner` can deposit in terms of `asset`
      */
-    function availableDepositLimit(address /*_owner*/ ) public view override returns (uint256) {
-        // TODO: If desired Implement deposit limit logic and any needed state variables .
+    // function availableDepositLimit(address /*_owner*/ ) public view override returns (uint256) {
+    //     // TODO: If desired Implement deposit limit logic and any needed state variables .
 
-        // EX:
-        // uint256 totalAssets = TokenizedStrategy.totalAssets();
-        // return totalAssets >= depositLimit ? 0 : depositLimit - totalAssets;
-        return type(uint256).max;
-    }
+    //     // EX:
+    //     // uint256 totalAssets = TokenizedStrategy.totalAssets();
+    //     // return totalAssets >= depositLimit ? 0 : depositLimit - totalAssets;
+    //     return type(uint256).max;
+    // }
 
     /**
      * @dev Optional function for strategist to override that can
@@ -220,7 +226,7 @@ contract Strategy is Module, DragonBaseStrategy {
      *
      * @param _totalIdle The current amount of idle funds that are available to deploy.
      */
-    function _tend(uint256 _totalIdle) internal override {}
+    // function _tend(uint256 _totalIdle) internal override {}
 
     /**
      * @dev Optional trigger to override if tend() will be used by the strategy.
@@ -228,9 +234,9 @@ contract Strategy is Module, DragonBaseStrategy {
      *
      * @return . Should return true if tend() should be called by keeper or false if not.
      */
-    function _tendTrigger() internal view override returns (bool) {
-        return true;
-    }
+    // function _tendTrigger() internal view override returns (bool) {
+    //     return true;
+    // }
 
     /**
      * @dev Optional function for a strategist to override that will
@@ -253,10 +259,10 @@ contract Strategy is Module, DragonBaseStrategy {
      *
      * @param _amount The amount of asset to attempt to free.
      */
-    function _emergencyWithdraw(uint256 _amount) internal override {
-        // TODO: If desired implement simple logic to free deployed funds.
-        // EX:
-        // _amount = min(_amount, aToken.balanceOf(address(this)));
-        // _freeFunds(_amount);
-    }
+    // function _emergencyWithdraw(uint256 _amount) internal override {
+    //     // TODO: If desired implement simple logic to free deployed funds.
+    //     // EX:
+    //     // _amount = min(_amount, aToken.balanceOf(address(this)));
+    //     // _freeFunds(_amount);
+    // }
 }

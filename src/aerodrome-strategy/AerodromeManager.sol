@@ -13,10 +13,10 @@ import {ISwapRouter} from "./aerodrome/periphery/interfaces/ISwapRouter.sol";
 
 abstract contract AerodromeManager is IERC721Receiver, Initializable, ReentrancyGuard {
     // =========== State Variables ===========
-    /// @notice Uniswap V3 position manager contract
+    /// @notice Aerodrome position manager contract
     INonfungiblePositionManager public nonfungiblePositionManager;
 
-    /// @notice Uniswap V3 pool contract
+    /// @notice Aerodrome pool contract
     ICLPool public pool;
 
     /// @notice Address of token0 in the pool
@@ -25,10 +25,10 @@ abstract contract AerodromeManager is IERC721Receiver, Initializable, Reentrancy
     /// @notice Address of token1 in the pool
     address public token1;
 
-    /// @notice Pool fee tier (0.3% = 3000)
+    /// @notice Pool tick spacing
     int24 public tickSpacing;
 
-    /// @notice Uniswap V3 swap router contract
+    /// @notice Aerodrome swap router contract
     ISwapRouter public swapRouter;
 
     // =========== Structs ===========
@@ -53,15 +53,15 @@ abstract contract AerodromeManager is IERC721Receiver, Initializable, Reentrancy
     event FeesCollected(uint256 indexed tokenId, uint256 amount0, uint256 amount1);
 
     // =========== Errors ===========
-    error NotUniswapNFT();
+    error NotAerodromeNFT();
     error NotPositionOwner();
     error InvalidTokenAmount();
 
-    /// @notice Initialize the Liquidity Manager
-    /// @param _nonfungiblePositionManager Address of Uniswap V3 NFT manager
-    /// @param _poolAddress Address of Uniswap V3 pool
-    /// @param _swapRouter Address of Uniswap V3 swap router
-    function __LiquidityManager_init(address _nonfungiblePositionManager, address _poolAddress, address _swapRouter)
+    /// @notice Initialize the Aerodrome Manager
+    /// @param _nonfungiblePositionManager Address of Aerodrome NFT manager
+    /// @param _poolAddress Address of Aerodrome pool
+    /// @param _swapRouter Address of Aerodrome swap router
+    function __AerodromeManager_init(address _nonfungiblePositionManager, address _poolAddress, address _swapRouter)
         internal
         onlyInitializing
     {
@@ -81,7 +81,7 @@ abstract contract AerodromeManager is IERC721Receiver, Initializable, Reentrancy
         returns (bytes4)
     {
         if (msg.sender != address(nonfungiblePositionManager)) {
-            revert NotUniswapNFT();
+            revert NotAerodromeNFT();
         }
         _createDeposit(operator, tokenId);
         return this.onERC721Received.selector;

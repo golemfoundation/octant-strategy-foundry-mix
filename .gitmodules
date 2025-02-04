@@ -1,7 +1,7 @@
 [submodule "lib/octant-v2-core"]
 	path = lib/octant-v2-core
 	url = https://github.com/golemfoundation/octant-v2-core
-	branch = dev
+	branch = develop
 [submodule "lib/v3-core"]
 	path = lib/v3-core
 	url = https://github.com/uniswap/v3-core
