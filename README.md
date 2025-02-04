@@ -1,10 +1,10 @@
-# Tokenized Strategy Mix for Yearn V3 strategies
+# Octant V2 Strategy Mix for Dragon Tokenized strategies
 
-This repo will allow you to write, test and deploy V3 "Tokenized Strategies" using [Foundry](https://book.getfoundry.sh/).
+This repo will allow you to write, test and deploy "octant-v2-core" using [Foundry](https://book.getfoundry.sh/).
 
-You will only need to override the three functions in Strategy.sol of `_deployFunds`, `_freeFunds` and `_harvestAndReport`. With the option to also override `_tend`, `_tendTrigger`, `availableDepositLimit`, `availableWithdrawLimit` and `_emergencyWithdraw` if desired.
+You will only need to override the three functions in Strategy.sol of `setUp`, `_deployFunds`, `_freeFunds` and `_harvestAndReport`. With the option to also override `_tend`, `_tendTrigger`, `availableDepositLimit`, `availableWithdrawLimit` and `_emergencyWithdraw` if desired.
 
-For a more complete overview of how the Tokenized Strategies work please visit the [TokenizedStrategy Repo](https://github.com/yearn/tokenized-strategy).
+For a more complete overview of how the Dragon Tokenized Strategies work please visit the [octant-v2-core Repo](https://github.com/golemfoundation/octant-v2-core).
 
 ## How to start
 
@@ -17,21 +17,21 @@ NOTE: If you are on a windows machine it is recommended to use [WSL](https://lea
 ### Clone this repository
 
 ```sh
-git clone --recursive https://github.com/yearn/tokenized-strategy-foundry-mix
+git clone --recursive https://github.com/golemfoundation/octant-strategy-foundry-mix
 
-cd tokenized-strategy-foundry-mix
+cd octant-strategy-foundry-mix
 
 yarn
 ```
 
 ### Set your environment Variables
 
-Use the `.env.example` template to create a `.env` file and store the environement variables. You will need to populate the `RPC_URL` for the desired network(s). RPC url can be obtained from various providers, including [Ankr](https://www.ankr.com/rpc/) (no sign-up required) and [Infura](https://infura.io/).
+Use the `.env.example` template to create a `.env` file and store the environement variables. You will need to populate the `TEST_RPC_URL` for the desired network(s). RPC url can be obtained from various providers, including [Ankr](https://www.ankr.com/rpc/) (no sign-up required) and [Infura](https://infura.io/).
 
 Use .env file
 
 1. Make a copy of `.env.example`
-2. Add the value for `ETH_RPC_URL` and other example vars
+2. Add the value for `TEST_RPC_URL` and other example vars
      NOTE: If you set up a global environment variable, that will take precedence.
 
 ### Build the project
@@ -48,13 +48,13 @@ make test
 
 ## Strategy Writing
 
-For a complete guide to creating a Tokenized Strategy please visit: https://docs.yearn.fi/developers/v3/strategy_writing_guide
+For a complete guide to creating a Dragon Tokenized Strategy please visit: https://golem.foundation
 
-NOTE: Compiler defaults to 8.23 but it can be adjusted in the foundry toml.
+NOTE: Compiler defaults to 8.25 but it can be adjusted in the foundry toml.
 
 ## Testing
 
-Due to the nature of the BaseStrategy utilizing an external contract for the majority of its logic, the default interface for any tokenized strategy will not allow proper testing of all functions. Testing of your Strategy should utilize the pre-built [IStrategyInterface](https://github.com/yearn/tokenized-strategy-foundry-mix/blob/master/src/interfaces/IStrategyInterface.sol) to cast any deployed strategy through for testing, as seen in the Setup example. You can add any external functions that you add for your specific strategy to this interface to be able to test all functions with one variable.
+Due to the nature of the DragonBaseStrategy utilizing an external contract for the majority of its logic, the default interface for any tokenized strategy will not allow proper testing of all functions. Testing of your Strategy should utilize the pre-built [IStrategyInterface](https://github.com/golemfoundation/octant-strategy-foundry-mix/blob/master/src/interfaces/IStrategyInterface.sol) to cast any deployed strategy through for testing, as seen in the Setup example. You can add any external functions that you add for your specific strategy to this interface to be able to test all functions with one variable.
 
 Example:
 
@@ -69,24 +69,6 @@ Tests run in fork environment, you need to complete the full installation and se
 
 ```sh
 make test
-```
-
-Run tests with traces (very useful)
-
-```sh
-make trace
-```
-
-Run specific test contract (e.g. `test/StrategyOperation.t.sol`)
-
-```sh
-make test-contract contract=StrategyOperationsTest
-```
-
-Run specific test contract with traces (e.g. `test/StrategyOperation.t.sol`)
-
-```sh
-make trace-contract contract=StrategyOperationsTest
 ```
 
 See here for some tips on testing [`Testing Tips`](https://book.getfoundry.sh/forge/tests.html)
@@ -122,18 +104,16 @@ Once the Strategy is fully deployed and verified, you will need to verify the To
 3. Click the "Verify" button
 4. Click "Save"
 
-This should add all of the external `TokenizedStrategy` functions to the contract interface on Etherscan.
-
 ## CI
 
 This repo uses [GitHub Actions](.github/workflows) for CI. There are three workflows: lint, test and slither for static analysis.
 
-To enable test workflow you need to add the `ETH_RPC_URL` secret to your repo. For more info see [GitHub Actions docs](https://docs.github.com/en/codespaces/managing-codespaces-for-your-organization/managing-encrypted-secrets-for-your-repository-and-organization-for-github-codespaces#adding-secrets-for-a-repository).
+To enable test workflow you need to add the `env variables` secret to your repo. For more info see [GitHub Actions docs](https://docs.github.com/en/codespaces/managing-codespaces-for-your-organization/managing-encrypted-secrets-for-your-repository-and-organization-for-github-codespaces#adding-secrets-for-a-repository).
 
 If the slither finds some issues that you want to suppress, before the issue add comment: `//slither-disable-next-line DETECTOR_NAME`. For more info about detectors see [Slither docs](https://github.com/crytic/slither/wiki/Detector-Documentation).
 
 ### Coverage
 
-If you want to use [`coverage.yml`](.github/workflows/coverage.yml) workflow on other chains than mainnet, you need to add the additional `CHAIN_RPC_URL` secret.
+If you want to use [`coverage.yml`](.github/workflows/coverage.yml) workflow on other chains than mainnet, you need to add the additional `TEST_RPC_URL` secret.
 
 Coverage workflow will generate coverage summary and attach it to PR as a comment. To enable this feature you need to add the [`GH_TOKEN`](.github/workflows/coverage.yml#L53) secret to your Github repo. Token must have permission to "Read and Write access to pull requests". To generate token go to [Github settings page](https://github.com/settings/tokens?type=beta). For more info see [GitHub Access Tokens](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens).

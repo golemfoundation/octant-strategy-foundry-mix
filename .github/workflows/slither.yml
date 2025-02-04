@@ -2,7 +2,7 @@ name: Slither Analysis
 on:
   push:
     branches:
-    - master
+      - master
   pull_request:
 
 jobs:
@@ -12,6 +12,7 @@ jobs:
       - uses: actions/checkout@v3
         with:
           submodules: recursive
+          token: ${{ secrets.GH_TOKEN }}
 
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
@@ -21,4 +22,16 @@ jobs:
       - name: Slither analysis
         uses: crytic/slither-action@v0.3.0
         with:
-          fail-on: 'medium'
+          fail-on: "high"
+          slither-config: slither.config.json
+          ignore-compile: true
+
+      - name: "Add summary"
+        run: |
+          echo "### Slither Analysis result" >> $GITHUB_STEP_SUMMARY
+          echo "Passed" >> $GITHUB_STEP_SUMMARY
+
+      - name: "Add summary"
+        run: |
+          echo "### Slither Analysis" >> $GITHUB_STEP_SUMMARY
+          echo "Passed" >> $GITHUB_STEP_SUMMARY

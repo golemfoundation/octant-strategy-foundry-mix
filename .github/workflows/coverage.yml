@@ -3,13 +3,25 @@ name: coverage
 on:
   push:
     branches:
-    - master
-    - develop
+      - master
+      - develop
   pull_request:
 
 env:
   FOUNDRY_PROFILE: ci
-  ETH_RPC_URL: ${{ secrets.ETH_RPC_URL }}
+  TEST_RPC_URL: ${{ secrets.TEST_RPC_URL }}
+  TEST_RPC_URL_ETH: ${{ secrets.TEST_RPC_URL_ETH }}
+  TEST_SAFE_SINGLETON_ETH: ${{ secrets.TEST_SAFE_SINGLETON_ETH }}
+  TEST_SAFE_PROXY_FACTORY_ETH: ${{ secrets.TEST_SAFE_PROXY_FACTORY_ETH }}
+  TEST_RPC_URL_POLYGON: ${{ secrets.TEST_RPC_URL_POLYGON }}
+  TEST_SAFE_SINGLETON_POLYGON: ${{ secrets.TEST_SAFE_SINGLETON_POLYGON }}
+  TEST_SAFE_PROXY_FACTORY_POLYGON: ${{ secrets.TEST_SAFE_PROXY_FACTORY_POLYGON }}
+  TEST_RPC_URL_CELO: ${{ secrets.TEST_RPC_URL_CELO }}
+  TEST_SAFE_SINGLETON_CELO: ${{ secrets.TEST_SAFE_SINGLETON_CELO }}
+  TEST_SAFE_PROXY_FACTORY_CELO: ${{ secrets.TEST_SAFE_PROXY_FACTORY_CELO }}
+  TEST_RPC_URL_BASE: ${{ secrets.TEST_RPC_URL_BASE }}
+  TEST_SAFE_SINGLETON_BASE: ${{ secrets.TEST_SAFE_SINGLETON_BASE }}
+  TEST_SAFE_PROXY_FACTORY_BASE: ${{ secrets.TEST_SAFE_PROXY_FACTORY_BASE }}
 
 jobs:
   coverage:
@@ -19,9 +31,11 @@ jobs:
     name: Foundry project
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Check out github repository
+        uses: actions/checkout@v4
         with:
           submodules: recursive
+          token: ${{ secrets.GH_TOKEN }}
 
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
